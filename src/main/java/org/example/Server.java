@@ -8,9 +8,11 @@ import java.util.concurrent.ConcurrentHashMap;
 public class Server {
 
     private static final ConcurrentHashMap<String, String> store = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<String, Long> expiry = new ConcurrentHashMap<>();
+
 
     public static void main (String[] args) throws IOException {
-        int port = 6379; // redis port
+        int port = 6379;
 
         ServerSocket serverSocket = new ServerSocket(port);
         System.out.println("Server listening on port: " + port);
@@ -47,7 +49,7 @@ public class Server {
         String[] parts = line.split("\\s+");
         String command = parts[0].toUpperCase();
 
-        if (parts[0].isEmpty()){
+        if (parts[0].isEmpty()) {
             return "This is an empty command";
         }
 
@@ -56,7 +58,17 @@ public class Server {
             return "OK";
 
         } else if (command.equals("GET") && parts.length >= 2) {
-            String value = store.get(parts[1]);
+            String key = parts[1];
+
+            // Passive expiration: check on read since key may have expired since last GET
+            if (expiry.containsKey(key) && expiry.get(key) < System.currentTimeMillis()) {
+                store.remove(key);
+                expiry.remove(key);
+                return "NULL";
+
+            }
+
+            String value = store.get(key);
             if (value == null) {
                 return "NULL";
             } else {
@@ -65,6 +77,19 @@ public class Server {
 
         } else if (command.equals("DEL") && parts.length >= 2) {
             store.remove(parts[1]);
+            return "OK";
+
+        } else if (command.equals("EXPIRE") && parts.length >= 3){
+            String key = parts[1];
+
+            if (!store.containsKey(key)) {
+                return "ERROR: key does not exist";
+            }
+
+            int timer = Integer.parseInt(parts[2]);
+            long expiryTime = System.currentTimeMillis() + (timer * 1000);
+
+            expiry.put(key, expiryTime);
             return "OK";
 
         } else {
