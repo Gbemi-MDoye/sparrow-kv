@@ -1,0 +1,79 @@
+package org.example;
+
+import java.io.*;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.util.concurrent.ConcurrentHashMap;
+
+public class Server {
+
+    private static final ConcurrentHashMap<String, String> store = new ConcurrentHashMap<>();
+
+    public static void main (String[] args) throws IOException {
+        int port = 6379; // redis port
+
+        ServerSocket serverSocket = new ServerSocket(port);
+        System.out.println("Server listening on port: " + port);
+
+        while (true) {
+            Socket clientSocket = serverSocket.accept();
+            System.out.println("Client connected: " + clientSocket.getRemoteSocketAddress());
+
+            Thread.ofVirtual().start(() -> {
+                    try {
+                        handleClient(clientSocket);
+                    } catch (IOException e) {
+                        System.out.println("Error handling client: " + e.getMessage());
+                    }
+            });
+        }
+    }
+
+    private static void handleClient(Socket clientSocket) throws IOException {
+        BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+        PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true);
+
+        String line;
+        while ((line = in.readLine()) != null) {
+            System.out.println("Received: " + line);
+            String response = handleCommand(line);
+            out.println(response);
+        }
+        System.out.println("Client disconnected: " + clientSocket.getRemoteSocketAddress());
+        clientSocket.close();
+    }
+
+    public static String handleCommand(String line) {
+        String[] parts = line.split("\\s+");
+        String command = parts[0].toUpperCase();
+
+        if (parts[0].isEmpty()){
+            return "This is an empty command";
+        }
+
+        if (command.equals("SET") && parts.length >= 3) {
+            store.put(parts[1], parts[2]);
+            return "OK";
+
+        } else if (command.equals("GET") && parts.length >= 2) {
+            String value = store.get(parts[1]);
+            if (value == null) {
+                return "NULL";
+            } else {
+                return value;
+            }
+
+        } else if (command.equals("DEL") && parts.length >= 2) {
+            store.remove(parts[1]);
+            return "OK";
+
+        } else {
+            return "ERROR: unknown command";
+        }
+
+
+
+
+
+    }
+}
