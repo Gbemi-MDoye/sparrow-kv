@@ -4,6 +4,8 @@ import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.ArrayList;
+import java.util.List;
 
 public class Server {
 
@@ -16,6 +18,30 @@ public class Server {
 
         ServerSocket serverSocket = new ServerSocket(port);
         System.out.println("Server listening on port: " + port);
+
+        // Background thread: cleans expired keys once every second
+        Thread.ofVirtual().start(() -> {
+            while (true) {
+                List<String> expiredKeys = new ArrayList<>();
+
+                for (String key : expiry.keySet()) {
+                    if (expiry.get(key) < System.currentTimeMillis()) {
+                        expiredKeys.add(key);
+                    }
+                }
+
+                for (String key : expiredKeys) {
+                    store.remove(key);
+                    expiry.remove(key);
+                }
+
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+
+                }
+            }
+        });
 
         while (true) {
             Socket clientSocket = serverSocket.accept();
