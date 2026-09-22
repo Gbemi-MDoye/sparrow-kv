@@ -11,10 +11,24 @@ public class Server {
 
     private static final ConcurrentHashMap<String, String> store = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<String, Long> expiry = new ConcurrentHashMap<>();
+    private static List<String> followerPorts = new ArrayList<>();
+    private static String role;
 
 
     public static void main (String[] args) throws IOException {
         int port;
+
+        if (args.length > 1) {
+            role = args[1];
+        } else {
+            role = "LONE";
+        }
+
+        for (int i = 2; i < args.length; i++) {
+             followerPorts.add(args[i]);
+        }
+
+
         if (args.length > 0) {
             port = Integer.parseInt(args[0]);
         } else {
@@ -62,6 +76,20 @@ public class Server {
         }
     }
 
+    private static void forwardToFollowers(String line) {
+        for (String followerPort : followerPorts) {
+            try {
+                Socket socket = new Socket("localhost", Integer.parseInt(followerPort));
+                PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+                out.println(line);
+                socket.close();
+            } catch (IOException e) {
+                System.out.println("Failed to forward to follower " + followerPort + ": " + e.getMessage());
+            }
+
+        }
+    }
+
     private static void handleClient(Socket clientSocket) throws IOException {
         BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
         PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true);
@@ -86,6 +114,11 @@ public class Server {
 
         if (command.equals("SET") && parts.length >= 3) {
             store.put(parts[1], parts[2]);
+
+            if (role.equalsIgnoreCase("LEADER")){
+                forwardToFollowers(line);
+            }
+
             return "OK";
 
         } else if (command.equals("GET") && parts.length >= 2) {
@@ -108,6 +141,11 @@ public class Server {
 
         } else if (command.equals("DEL") && parts.length >= 2) {
             store.remove(parts[1]);
+
+            if (role.equalsIgnoreCase("LEADER")){
+                forwardToFollowers(line);
+            }
+
             return "OK";
 
         } else if (command.equals("EXPIRE") && parts.length >= 3){
