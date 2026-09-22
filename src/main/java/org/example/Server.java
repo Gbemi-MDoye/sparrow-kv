@@ -14,7 +14,12 @@ public class Server {
 
 
     public static void main (String[] args) throws IOException {
-        int port = 6379;
+        int port;
+        if (args.length > 0) {
+            port = Integer.parseInt(args[0]);
+        } else {
+            port = 6379;
+        }
 
         ServerSocket serverSocket = new ServerSocket(port);
         System.out.println("Server listening on port: " + port);
