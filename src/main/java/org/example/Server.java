@@ -159,6 +159,11 @@ public class Server {
             long expiryTime = System.currentTimeMillis() + (timer * 1000);
 
             expiry.put(key, expiryTime);
+
+            if (role.equalsIgnoreCase("LEADER")){
+                forwardToFollowers(line);
+            }
+
             return "OK";
 
         } else {
