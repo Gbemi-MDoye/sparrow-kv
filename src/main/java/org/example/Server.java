@@ -156,6 +156,7 @@ public class Server {
 
         if (command.equals("SET") && parts.length >= 3) {
             store.put(parts[1], parts[2]);
+            expiry.remove(parts[1]);
 
             if (role.equalsIgnoreCase("LEADER")){
                 forwardToFollowers(line);
@@ -183,6 +184,7 @@ public class Server {
 
         } else if (command.equals("DEL") && parts.length >= 2) {
             store.remove(parts[1]);
+            expiry.remove(parts[1]);
 
             if (role.equalsIgnoreCase("LEADER")){
                 forwardToFollowers(line);
@@ -197,10 +199,13 @@ public class Server {
                 return "ERROR: key does not exist";
             }
 
-            int timer = Integer.parseInt(parts[2]);
-            long expiryTime = System.currentTimeMillis() + (timer * 1000);
-
-            expiry.put(key, expiryTime);
+            try {
+                int timer = Integer.parseInt(parts[2]);
+                long expiryTime = System.currentTimeMillis() + (timer * 1000);
+                expiry.put(key, expiryTime);
+            } catch (NumberFormatException e) {
+                return "ERROR: invalid number";
+            }
 
             if (role.equalsIgnoreCase("LEADER")){
                 forwardToFollowers(line);
