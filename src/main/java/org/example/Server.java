@@ -39,7 +39,7 @@ public class Server {
             port = 6379;
         }
 
-        ServerSocket serverSocket = new ServerSocket(port);
+        ServerSocket serverSocket = new ServerSocket(port, 200);
         System.out.println("Server listening on port: " + port + "(role: " + role + ")");
 
         // Background thread: cleans expired keys once every second
