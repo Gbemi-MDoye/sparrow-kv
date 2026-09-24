@@ -13,7 +13,7 @@ public class Server {
     private static final ConcurrentHashMap<String, Long> expiry = new ConcurrentHashMap<>();
     private static List<String> followerPorts = new ArrayList<>();
     private static String role;
-
+    private static int leaderPort;
 
     public static void main (String[] args) throws IOException {
         int port;
@@ -24,10 +24,13 @@ public class Server {
             role = "LONE";
         }
 
+        if (role.equalsIgnoreCase("FOLLOWER") && args.length > 2) {
+            leaderPort = Integer.parseInt(args[2]);
+        }
+
         for (int i = 2; i < args.length; i++) {
              followerPorts.add(args[i]);
         }
-
 
         if (args.length > 0) {
             port = Integer.parseInt(args[0]);
@@ -36,7 +39,7 @@ public class Server {
         }
 
         ServerSocket serverSocket = new ServerSocket(port);
-        System.out.println("Server listening on port: " + port);
+        System.out.println("Server listening on port: " + port + "(role: " + role + ")");
 
         // Background thread: cleans expired keys once every second
         Thread.ofVirtual().start(() -> {
@@ -59,6 +62,35 @@ public class Server {
                 } catch (InterruptedException e) {
 
                 }
+            }
+        });
+
+        // Background thread: followers send ping to the leader to check if their alive evey 1.5s
+        Thread.ofVirtual().start(() -> {
+            while (true) {
+                if (role.equalsIgnoreCase("FOLLOWER"))  {
+                    try {
+                        Socket socket = new Socket("localhost", leaderPort);
+                        PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+                        BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+
+                        out.println("PING");
+                        String response = in.readLine();
+
+                        if (response != null && response.equals("PONG")) {
+                            System.out.println("Leader is alive");
+                        }
+                        socket.close();
+
+                    } catch (IOException e) {
+                        System.out.println("Leader appears to be down;" + e.getMessage());
+
+                    }
+                }
+
+                try {
+                    Thread.sleep(1500);
+                } catch (InterruptedException e) {}
             }
         });
 
@@ -166,13 +198,11 @@ public class Server {
 
             return "OK";
 
+        } else if (command.equals("PING")) {
+            return "PONG";
+
         } else {
-            return "ERROR: unknown command";
+                return "ERROR: unknown command";
         }
-
-
-
-
-
     }
 }
