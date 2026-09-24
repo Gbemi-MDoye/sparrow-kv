@@ -14,6 +14,7 @@ public class Server {
     private static List<String> followerPorts = new ArrayList<>();
     private static String role;
     private static int leaderPort;
+    private static int missedHeartbeats = 0;
 
     public static void main (String[] args) throws IOException {
         int port;
@@ -79,11 +80,20 @@ public class Server {
 
                         if (response != null && response.equals("PONG")) {
                             System.out.println("Leader is alive");
+                            missedHeartbeats = 0;
                         }
                         socket.close();
 
                     } catch (IOException e) {
                         System.out.println("Leader appears to be down;" + e.getMessage());
+                        missedHeartbeats++;
+
+                        if (missedHeartbeats >= 3) {
+                            role = "LEADER";
+                            System.out.println(" Leader presumed dead - self promoted to LEADER");
+                        }
+
+
 
                     }
                 }
